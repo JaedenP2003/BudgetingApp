@@ -106,7 +106,8 @@ h1, h2, h3 {
 .app-nav-link {
     position: relative;
     display: block;
-    padding: 12px 18px;
+    /* 14px top/bottom + ~16px line-height lands near Apple's 44pt touch-target minimum. */
+    padding: 14px 18px;
     font-size: 14px;
     color: var(--muted-text);
     cursor: pointer;
@@ -253,8 +254,8 @@ h1, h2, h3 {
 .card-toggle {
     background: none;
     border: none;
-    padding: 0;
-    margin-top: 10px;
+    padding: 6px 0;
+    margin-top: 4px;
     font-size: 10px;
     font-weight: 600;
     color: var(--accent);
@@ -304,7 +305,7 @@ h1, h2, h3 {
     font-size: 14px;
     border: none;
     cursor: pointer;
-    padding: 9px 16px;
+    padding: 12px 16px;
     line-height: 1.2;
 }
 
@@ -326,7 +327,7 @@ h1, h2, h3 {
     background: transparent;
     color: var(--accent);
     border: 1px solid var(--accent-dim);
-    padding: 8px 14px;
+    padding: 11px 14px;
 }
 
 .btn-outline-accent:hover {
@@ -335,7 +336,7 @@ h1, h2, h3 {
 }
 
 .btn-outline-accent.small {
-    padding: 6px 10px;
+    padding: 8px 12px;
     font-size: 12px;
 }
 
@@ -354,7 +355,7 @@ select, input[type="text"], input[type="number"] {
     background: var(--surface-alt);
     color: var(--text);
     border: 1px solid var(--hairline);
-    padding: 8px 10px;
+    padding: 11px 10px;
     font-family: var(--font-body);
     font-size: 14px;
 }
@@ -366,8 +367,8 @@ select:focus, input:focus {
 
 input[type="checkbox"] {
     accent-color: var(--accent);
-    width: 15px;
-    height: 15px;
+    width: 20px;
+    height: 20px;
 }
 
 .field {
@@ -397,7 +398,7 @@ input[type="checkbox"] {
 .data-table select, .data-table input[type="text"], .data-table input[type="number"] {
     width: 100%;
     font-size: 13px;
-    padding: 5px 6px;
+    padding: 8px 6px;
 }
 
 .checkbox-row {
@@ -466,7 +467,7 @@ input[type="checkbox"] {
 }
 
 .data-table td {
-    padding: 8px;
+    padding: 10px 8px;
     border-bottom: 1px solid var(--hairline);
     font-size: 13px;
     vertical-align: middle;

@@ -132,10 +132,33 @@
             }
         }
 
-        // X-axis labels
+        // X-axis: a small tick under every slot regardless (so the eye can still count
+        // months even where the text is thinned out below), then only as many text
+        // labels as actually fit without overlapping. A real dataset can span 20+
+        // months — at 10px font that's roughly 5.5px/character, and cramming a label
+        // like "Aug 2024" into every one of 25 slots is exactly what was reported as
+        // unreadable, so labels are skipped at a fixed stride rather than shrunk further
+        // (shrinking just trades "overlapping" for "illegible").
+        const double charWidthEstimate = 5.5;
+        var maxLabelWidth = Labels.Count > 0 ? Labels.Max(l => l.Length) * charWidthEstimate : 0;
+        var labelStep = maxLabelWidth > 0 ? Math.Max(1, (int)Math.Ceiling(maxLabelWidth / SlotWidth)) : 1;
+
         for (var i = 0; i < Labels.Count; i++)
         {
+            sb.Append($"""<line x1="{F(SlotCenter(i))}" y1="{F(PlotBottom)}" x2="{F(SlotCenter(i))}" y2="{F(PlotBottom + 4)}" stroke="var(--hairline)" stroke-width="1" />""");
+        }
+
+        var lastDrawn = -labelStep;
+        for (var i = 0; i < Labels.Count; i += labelStep)
+        {
             sb.Append($"""<text x="{F(SlotCenter(i))}" y="{F(PlotBottom + 18)}" text-anchor="middle" font-size="10" fill="var(--muted-text)">{Labels[i]}</text>""");
+            lastDrawn = i;
+        }
+        // Always anchor the final month too, as long as it won't crowd the last regular label.
+        var finalIndex = Labels.Count - 1;
+        if (finalIndex >= 0 && finalIndex != lastDrawn && finalIndex - lastDrawn >= Math.Max(1, labelStep / 2))
+        {
+            sb.Append($"""<text x="{F(SlotCenter(finalIndex))}" y="{F(PlotBottom + 18)}" text-anchor="middle" font-size="10" fill="var(--muted-text)">{Labels[finalIndex]}</text>""");
         }
 
         sb.Append("</svg>");

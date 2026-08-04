@@ -10,12 +10,18 @@ using Microsoft.Data.Sqlite;
 //
 // Usage: dotnet run --project BudgetingApp.ExportTool [dbPath] [outputPath]
 //   dbPath defaults to the desktop app's real database location.
-//   outputPath defaults to ./budgetapp-export.json
+//   outputPath defaults to a file on the Desktop, timestamped, easy to find and to hand
+//   off (email, iCloud Drive, etc.) — deliberately NOT a relative "./budgetapp-export.json"
+//   default: this tool is naturally run from inside this git repo, and a relative default
+//   silently drops years of real transaction data into the working tree, one `git add -A`
+//   away from being committed and pushed to a public repo.
 
 var dbPath = args.Length > 0
     ? args[0]
     : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BudgetingApp", "budget.db");
-var outputPath = args.Length > 1 ? args[1] : "budgetapp-export.json";
+var outputPath = args.Length > 1
+    ? args[1]
+    : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), $"budgetapp-export-{DateTime.Now:yyyy-MM-dd}.json");
 
 if (!File.Exists(dbPath))
 {

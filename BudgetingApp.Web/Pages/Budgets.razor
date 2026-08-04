@@ -1,0 +1,126 @@
+@page "/budgets"
+@using System.Globalization
+@inject WebBudgetStore Store
+
+<PageTitle>Budgets</PageTitle>
+
+<h1 class="page-header">Budgets</h1>
+
+<div class="form-row" style="margin-top:0; margin-bottom:16px;">
+    <div class="field" style="width:130px; margin-right:8px;">
+        <select value="@_selectedMonth" @onchange="OnMonthChanged">
+            @foreach (var m in _monthNames)
+            {
+                <option value="@m.Value">@m.Name</option>
+            }
+        </select>
+    </div>
+    <div class="field" style="width:90px;">
+        <select value="@_selectedYear" @onchange="OnYearChanged">
+            @foreach (var y in _yearOptions)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="section-label" style="white-space:normal;">
+        Set a monthly target for any category. It's added to "Expected" on the Monthly Summary alongside
+        whatever recurring expenses are already scheduled for that category and month.
+    </div>
+</div>
+
+<div style="overflow-x:auto;">
+    <table class="data-table">
+        <thead>
+        <tr>
+            <th>Category</th>
+            <th class="text-right" style="width:120px;">Recurring</th>
+            <th style="width:140px;">Budget</th>
+            <th class="text-right" style="width:120px;">Total Expected</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var category in _categories)
+        {
+            var recurring = RecurringFor(category.Id);
+            var budget = BudgetFor(category.Id);
+            <tr>
+                <td>@category.Name</td>
+                <td class="text-right text-muted">@recurring.ToString("C")</td>
+                <td>
+                    <input type="text" value="@budget.ToString("0.00", CultureInfo.InvariantCulture)"
+                           style="text-align:right;" @onchange="e => OnBudgetChanged(category.Id, (string?)e.Value)" />
+                </td>
+                <td class="text-right">@((recurring + budget).ToString("C"))</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private record MonthOption(int Value, string Name);
+
+    private List<Category> _categories = [];
+    private List<RecurringExpense> _recurringExpenses = [];
+    private List<MonthOption> _monthNames = [];
+    private List<int> _yearOptions = [];
+    private int _selectedMonth;
+    private int _selectedYear;
+    private Dictionary<long, decimal> _budgetsByCategory = [];
+
+    protected override void OnInitialized()
+    {
+        _categories = Store.GetCategories().Where(c => !c.IsTransfer).ToList();
+        _recurringExpenses = Store.GetRecurringExpenses();
+
+        _monthNames = Enumerable.Range(1, 12)
+            .Select(m => new MonthOption(m, CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(m)))
+            .ToList();
+
+        var currentYear = DateTime.Today.Year;
+        _yearOptions = Enumerable.Range(currentYear - 4, 6).ToList();
+
+        var today = YearMonth.FromDate(DateOnly.FromDateTime(DateTime.Today));
+        _selectedMonth = today.Month;
+        _selectedYear = today.Year;
+        if (!_yearOptions.Contains(_selectedYear))
+        {
+            _yearOptions.Insert(0, _selectedYear);
+        }
+
+        RefreshBudgets();
+    }
+
+    private YearMonth SelectedMonth => new(_selectedYear, _selectedMonth);
+
+    private void RefreshBudgets() =>
+        _budgetsByCategory = Store.GetBudgetsForMonth(SelectedMonth).ToDictionary(b => b.CategoryId, b => b.ExpectedAmount);
+
+    private decimal RecurringFor(long categoryId) =>
+        _recurringExpenses.Where(e => e.CategoryId == categoryId).Sum(e => RecurringExpenseOccurrences.ExpectedAmountFor(e, SelectedMonth));
+
+    private decimal BudgetFor(long categoryId) => _budgetsByCategory.GetValueOrDefault(categoryId, 0m);
+
+    private void OnMonthChanged(ChangeEventArgs e)
+    {
+        _selectedMonth = int.Parse((string)e.Value!, CultureInfo.InvariantCulture);
+        RefreshBudgets();
+    }
+
+    private void OnYearChanged(ChangeEventArgs e)
+    {
+        _selectedYear = int.Parse((string)e.Value!, CultureInfo.InvariantCulture);
+        RefreshBudgets();
+    }
+
+    private async Task OnBudgetChanged(long categoryId, string? value)
+    {
+        decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount);
+        await Store.UpsertBudgetAsync(categoryId, SelectedMonth, amount);
+        RefreshBudgets();
+    }
+}

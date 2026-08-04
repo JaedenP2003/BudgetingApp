@@ -8,3 +8,9 @@ publish/
 
 ## Blazor WASM publish helper files
 wwwroot/service-worker-assets.js
+
+## Real financial data — BudgetingApp.ExportTool output should never land in the repo,
+## even if run with an explicit output path that happens to point in here.
+budgetapp-export*.json
+budget.db
+budget.db.*

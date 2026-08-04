@@ -39,6 +39,33 @@ jobs:
           sed -i 's#<base href="/" />#<base href="/BudgetingApp/" />#' publish/wwwroot/index.html
           sed -i 's#const base = "/";#const base = "/BudgetingApp/";#' publish/wwwroot/service-worker.js
 
+      # The service worker fetches every cached asset with a Subresource-Integrity hash
+      # taken from service-worker-assets.js, which the SDK computed at publish time —
+      # before the base-href edit above changed index.html's bytes. Left alone, that stale
+      # hash makes the browser reject the fetch, which fails the *entire* install step (one
+      # bad hash aborts cache.addAll for every asset), so the app silently never installs
+      # offline. Recompute and patch in the real hash for the edited file.
+      - name: Fix stale integrity hash for the edited index.html
+        run: |
+          python3 - <<'PY'
+          import hashlib, base64, re
+
+          with open('publish/wwwroot/index.html', 'rb') as f:
+              new_hash = 'sha256-' + base64.b64encode(hashlib.sha256(f.read()).digest()).decode()
+
+          path = 'publish/wwwroot/service-worker-assets.js'
+          with open(path, encoding='utf-8') as f:
+              text = f.read()
+
+          pattern = re.compile(r'("hash":\s*")[^"]*(",\s*\n\s*"url":\s*"index\.html")')
+          text, count = pattern.subn(r'\g<1>' + new_hash + r'\g<2>', text)
+          if count != 1:
+              raise SystemExit(f'expected exactly 1 index.html manifest entry, found {count}')
+
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(text)
+          PY
+
       # Without this, GitHub Pages runs the output through Jekyll, which ignores any
       # directory starting with an underscore — silently dropping the entire _framework
       # folder that the WASM runtime and app DLL live in.

@@ -1,0 +1,120 @@
+@page "/transactions"
+@inject WebBudgetStore Store
+
+<PageTitle>Transactions</PageTitle>
+
+<h1 class="page-header">Transactions</h1>
+
+<div style="display:flex; align-items:center; gap:20px; margin-bottom:12px; flex-wrap:wrap;">
+    <label style="display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" @bind="_uncategorizedOnly" @bind:after="Refresh" />
+        <span>Uncategorized only</span>
+    </label>
+
+    <label style="display:flex; align-items:center; gap:6px;">
+        <span>Account:</span>
+        <select value="@_accountFilter" @onchange="OnAccountFilterChanged" style="width:160px;">
+            <option value="">All accounts</option>
+            @foreach (var account in _accounts)
+            {
+                <option value="@account.Id">@account.Name</option>
+            }
+        </select>
+    </label>
+
+    <button class="btn btn-outline-accent" @onclick="RerunCategorization">Re-run categorization</button>
+</div>
+
+@if (_rerunMessage is not null)
+{
+    <div class="alert alert-success"><span class="alert-title">@_rerunMessage</span></div>
+}
+
+<div style="overflow-x:auto;">
+    <table class="data-table">
+        <thead>
+        <tr>
+            <th style="width:100px;">Date</th>
+            <th>Description</th>
+            <th class="text-right" style="width:100px;">Amount</th>
+            <th style="width:180px;">Category</th>
+            <th style="width:120px;">Account</th>
+            <th style="width:140px;">Source File</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var transaction in _transactions)
+        {
+            <tr>
+                <td>@transaction.PostingDate.ToString("MM/dd/yyyy")</td>
+                <td>@transaction.Description</td>
+                <td class="text-right @(transaction.Amount < 0 ? "text-negative" : "text-positive")">@transaction.Amount.ToString("C")</td>
+                <td>
+                    <select value="@(transaction.CategoryId?.ToString() ?? "")" @onchange="e => OnCategoryChanged(transaction.Id, e)" style="width:100%;">
+                        <option value="">(uncategorized)</option>
+                        @foreach (var category in _categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </select>
+                </td>
+                <td>@AccountName(transaction.AccountId)</td>
+                <td class="text-muted">@transaction.SourceFile</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@if (_transactions.Count == 0)
+{
+    <p class="empty-hint" style="margin-top:12px;">No transactions to show. Use <a href="import">Import</a> to add some.</p>
+}
+
+@code {
+    private List<Transaction> _transactions = [];
+    private List<Category> _categories = [];
+    private List<Account> _accounts = [];
+    private bool _uncategorizedOnly;
+    private string _accountFilter = "";
+    private string? _rerunMessage;
+
+    protected override void OnInitialized()
+    {
+        _categories = Store.GetCategories();
+        _accounts = Store.GetAccounts();
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        var source = _uncategorizedOnly ? Store.GetUncategorizedTransactions() : Store.GetAllTransactions();
+        _transactions = string.IsNullOrEmpty(_accountFilter)
+            ? source
+            : source.Where(t => t.AccountId == long.Parse(_accountFilter)).ToList();
+    }
+
+    private void OnAccountFilterChanged(ChangeEventArgs e)
+    {
+        _accountFilter = (string?)e.Value ?? "";
+        Refresh();
+    }
+
+    private string AccountName(long accountId) => _accounts.FirstOrDefault(a => a.Id == accountId)?.Name ?? "";
+
+    private async Task OnCategoryChanged(long transactionId, ChangeEventArgs e)
+    {
+        var value = (string?)e.Value;
+        long? categoryId = string.IsNullOrEmpty(value) ? null : long.Parse(value);
+        await Store.SetCategoryAsync(transactionId, categoryId);
+        Refresh();
+    }
+
+    private async Task RerunCategorization()
+    {
+        var uncategorizedIds = Store.GetUncategorizedTransactions().Select(t => t.Id).ToList();
+        var result = await Store.CategorizeTransactionsAsync(uncategorizedIds);
+        _rerunMessage = $"{result.CategorizedCount} transaction(s) categorized, {result.UncategorizedCount} still uncategorized.";
+        Refresh();
+    }
+}

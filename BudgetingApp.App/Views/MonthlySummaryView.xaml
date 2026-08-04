@@ -1,0 +1,175 @@
+<UserControl x:Class="BudgetingApp.App.Views.MonthlySummaryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </UserControl.Resources>
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Monthly Summary" Style="{StaticResource PageHeaderStyle}"/>
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,16">
+            <ComboBox x:Name="MonthBox" Width="130" SelectionChanged="MonthOrYear_Changed"/>
+            <ComboBox x:Name="YearBox" Width="90" Margin="8,0,0,0" SelectionChanged="MonthOrYear_Changed"/>
+        </StackPanel>
+
+        <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                Padding="16" Margin="0,0,0,16" x:Name="NoDataPanel" Visibility="Collapsed">
+            <TextBlock Text="No data imported yet for this month." FontSize="14" Foreground="{StaticResource MutedTextBrush}"/>
+        </Border>
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16" x:Name="TotalsPanel">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}" Margin="0,0,8,0">
+                <Grid>
+                    <Border Style="{StaticResource StatCardAccentStyle}" Background="{StaticResource PositiveBrush}"/>
+                    <StackPanel Margin="16,14">
+                        <TextBlock Text="Total Income" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBlock x:Name="TotalIncomeText" Style="{StaticResource StatValueStyle}" Foreground="{StaticResource PositiveBrush}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource StatCardStyle}" Margin="8,0">
+                <Grid>
+                    <Border Style="{StaticResource StatCardAccentStyle}" Background="{StaticResource NegativeBrush}"/>
+                    <StackPanel Margin="16,14">
+                        <TextBlock Text="Total Expenses" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBlock x:Name="TotalExpensesText" Style="{StaticResource StatValueStyle}" Foreground="{StaticResource NegativeBrush}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}" Margin="8,0">
+                <Grid>
+                    <Border Style="{StaticResource StatCardAccentStyle}" Background="{StaticResource MutedTextBrush}"/>
+                    <StackPanel Margin="16,14">
+                        <TextBlock Text="Transfers between accounts" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBlock x:Name="TransfersText" Style="{StaticResource StatValueStyle}" Foreground="{StaticResource MutedTextBrush}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="3" Style="{StaticResource StatCardStyle}" Margin="8,0,0,0">
+                <Grid>
+                    <Border x:Name="SavingsCardAccent" Style="{StaticResource StatCardAccentStyle}" Background="{StaticResource AccentBrush}"/>
+                    <StackPanel Margin="16,14">
+                        <TextBlock Text="Savings" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBlock x:Name="SavingsText" Style="{StaticResource StatValueStyle}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="DetailGrid">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*"/>
+                <ColumnDefinition Width="2*"/>
+            </Grid.ColumnDefinitions>
+
+            <ScrollViewer Grid.Column="0" Margin="0,0,16,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="SummaryGrid">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource StatCardStyle}" Width="210" Margin="0,0,10,10" VerticalAlignment="Top">
+                                <Grid>
+                                    <Border Style="{StaticResource StatCardAccentStyle}" Background="{Binding AccentBrush}"/>
+                                    <StackPanel Margin="14,10">
+                                        <TextBlock Text="{Binding CategoryName}" Style="{StaticResource SectionLabelStyle}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Actual, StringFormat={}{0:C}}" FontFamily="{StaticResource DisplayFontFamily}" FontSize="17" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,2,0,6"/>
+                                        <TextBlock FontSize="10" Foreground="{StaticResource MutedTextBrush}">
+                                            <Run Text="Expected "/><Run Text="{Binding Expected, StringFormat={}{0:C}}"/>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding DifferenceText}" FontSize="11" FontWeight="SemiBold" Foreground="{Binding DifferenceBrush}" Margin="0,2,0,0"/>
+
+                                        <Button Content="{Binding ToggleLabel}" Style="{StaticResource CardToggleButtonStyle}"
+                                                Visibility="{Binding HasTransactions, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                Click="ToggleTransactions_Click" Margin="0,10,0,0"/>
+
+                                        <ItemsControl ItemsSource="{Binding Transactions}"
+                                                      Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                      Margin="0,6,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,0,0,5">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                                            <TextBlock Text="{Binding Description}" FontSize="10" Foreground="{StaticResource TextBrush}"
+                                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Description}"/>
+                                                            <TextBlock Text="{Binding DateText}" FontSize="9" Foreground="{StaticResource MutedTextBrush}"/>
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="1" Text="{Binding AmountText}" FontSize="10" FontWeight="SemiBold"
+                                                                   Foreground="{Binding AmountBrush}" VerticalAlignment="Top"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <Border Grid.Column="1" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="12">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Where it went" Style="{StaticResource SectionLabelStyle}" Margin="0" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="BarChartModeButton" Content="Bar" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" Click="ChartMode_Click"/>
+                            <Button x:Name="PieChartModeButton" Content="Pie" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" Margin="6,0,0,0" Click="ChartMode_Click"/>
+                            <Button x:Name="RingChartModeButton" Content="Ring" Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" Margin="6,0,0,0" Click="ChartMode_Click"/>
+                        </StackPanel>
+                    </Grid>
+                    <!--
+                        LiveCharts2 2.0.5's built-in PieChart Legend has a layout bug: with this
+                        many series it never finishes claiming space and the pie itself renders
+                        as a clipped wedge instead of a full circle. Legend stays Hidden on the
+                        chart itself; CategoryLegend below is a plain WPF substitute.
+                    -->
+                    <ItemsControl x:Name="CategoryLegend" DockPanel.Dock="Bottom" Margin="0,8,0,0" Visibility="Collapsed">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,14,4">
+                                    <Ellipse Width="9" Height="9" Fill="{Binding Color}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Grid>
+                        <lvc:CartesianChart x:Name="CategoryChart" Background="Transparent"/>
+                        <lvc:PieChart x:Name="CategoryPieChart" Background="Transparent" Visibility="Collapsed"/>
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</UserControl>

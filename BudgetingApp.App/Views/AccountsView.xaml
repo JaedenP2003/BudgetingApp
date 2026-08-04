@@ -1,0 +1,44 @@
+<UserControl x:Class="BudgetingApp.App.Views.AccountsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d">
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Accounts" Style="{StaticResource PageHeaderStyle}"/>
+
+        <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="16" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Each imported CSV belongs to one account. If a file shows charges as positive numbers (some credit card statements do this), check the sign-flip box on the Import CSV page for that upload." Style="{StaticResource SectionLabelStyle}" TextWrapping="Wrap"/>
+                <WrapPanel Margin="0,8,0,0">
+                    <StackPanel Margin="0,0,12,0" Width="180">
+                        <TextBlock Text="Name" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBox x:Name="NameBox"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0" Width="140">
+                        <TextBlock Text="Type" Style="{StaticResource SectionLabelStyle}"/>
+                        <ComboBox x:Name="TypeBox"/>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Bottom">
+                        <Button Content="Add Account" Style="{StaticResource AccentButtonStyle}" Click="AddButton_Click"/>
+                    </StackPanel>
+                </WrapPanel>
+                <TextBlock x:Name="ValidationText" Foreground="{StaticResource NegativeBrush}" Margin="0,8,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <DataGrid x:Name="AccountsGrid" DockPanel.Dock="Top">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="140" IsReadOnly="True"/>
+                <DataGridTemplateColumn Header="" Width="70">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Delete" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" Click="DeleteButton_Click"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

@@ -1,0 +1,144 @@
+@* Hand-rolled SVG chart (bars + optional line overlay) — no JS charting library needed.
+   Mirrors BudgetingApp.App.Views.ChartTheme's palette so it reads as the same chart
+   type as the desktop app's LiveCharts CartesianChart, just rendered without SkiaSharp.
+   Built as a raw markup string rather than Razor SVG elements because Razor treats a
+   bare <text> tag as reserved syntax and refuses to let it carry attributes (RZ1023) —
+   unavoidable for an SVG chart, which needs <text> for every axis label. *@
+@using System.Globalization
+@using System.Text
+
+@((MarkupString)_svg)
+
+@if (Series.Count > 0)
+{
+    <div style="display:flex; gap:16px; margin-top:8px; flex-wrap:wrap;">
+        @foreach (var series in Series)
+        {
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span style="width:9px; height:9px; border-radius:@(series.Kind == ChartSeriesKind.Line ? "50%" : "0"); background:@series.Color; display:inline-block;"></span>
+                <span style="font-size:11px; color:var(--muted-text);">@series.Name</span>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    public enum ChartSeriesKind { Bar, Line }
+    public record ChartSeries(string Name, IReadOnlyList<double> Values, string Color, ChartSeriesKind Kind, bool Fill = false);
+
+    [Parameter, EditorRequired] public IReadOnlyList<string> Labels { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<ChartSeries> Series { get; set; } = [];
+
+    private const double Width = 800;
+    private const double Height = 280;
+    private const double PlotLeft = 54;
+    private const double PlotRight = 780;
+    private const double PlotTop = 14;
+    private const double PlotBottom = 240;
+    private const int YTicks = 4;
+
+    private double _yMin;
+    private double _yMax;
+    private string _svg = "";
+
+    protected override void OnParametersSet()
+    {
+        var allValues = Series.SelectMany(s => s.Values).ToList();
+        var max = allValues.Count > 0 ? allValues.Max() : 0;
+        var min = allValues.Count > 0 ? allValues.Min() : 0;
+
+        _yMax = Math.Max(max, 0);
+        _yMin = Math.Min(min, 0);
+        if (_yMax - _yMin < 1)
+        {
+            _yMax = _yMin + 1;
+        }
+
+        _svg = BuildSvg();
+    }
+
+    private double SlotWidth => Labels.Count > 0 ? (PlotRight - PlotLeft) / Labels.Count : PlotRight - PlotLeft;
+    private double SlotCenter(int index) => PlotLeft + SlotWidth * (index + 0.5);
+    private double ValueToY(double value) => PlotTop + (_yMax - value) / (_yMax - _yMin) * (PlotBottom - PlotTop);
+    private static string F(double value) => value.ToString(CultureInfo.InvariantCulture);
+    // Deliberately not CultureInfo.InvariantCulture, which has no real currency symbol and
+    // renders "¤" instead of "$" — match the plain .ToString("C") calls used everywhere
+    // else in the app (Home.razor etc.), which rely on the ambient current culture.
+    private static string FormatValue(double value) => value.ToString("C0");
+
+    private string BuildSvg()
+    {
+        var sb = new StringBuilder();
+        sb.Append($"""<svg viewBox="0 0 {F(Width)} {F(Height)}" style="width:100%; height:auto; display:block;">""");
+
+        // Y-axis gridlines + labels
+        for (var i = 0; i <= YTicks; i++)
+        {
+            var value = _yMin + (_yMax - _yMin) * i / YTicks;
+            var y = ValueToY(value);
+            sb.Append($"""<line x1="{F(PlotLeft)}" y1="{F(y)}" x2="{F(PlotRight)}" y2="{F(y)}" stroke="var(--hairline)" stroke-width="1" />""");
+            sb.Append($"""<text x="{F(PlotLeft - 8)}" y="{F(y + 4)}" text-anchor="end" font-size="10" fill="var(--muted-text)">{FormatValue(value)}</text>""");
+        }
+
+        // Zero baseline, emphasized when the range dips negative
+        if (_yMin < 0 && _yMax > 0)
+        {
+            var zeroY = ValueToY(0);
+            sb.Append($"""<line x1="{F(PlotLeft)}" y1="{F(zeroY)}" x2="{F(PlotRight)}" y2="{F(zeroY)}" stroke="var(--muted-text)" stroke-width="1" />""");
+        }
+
+        // Bar series, grouped per label slot
+        var barSeriesList = Series.Where(s => s.Kind == ChartSeriesKind.Bar).ToList();
+        for (var labelIndex = 0; labelIndex < Labels.Count; labelIndex++)
+        {
+            var slotCenter = SlotCenter(labelIndex);
+            var groupWidth = SlotWidth * 0.6;
+            var barWidth = barSeriesList.Count > 0 ? groupWidth / barSeriesList.Count - 3 : 0;
+            var groupLeft = slotCenter - groupWidth / 2;
+
+            for (var s = 0; s < barSeriesList.Count; s++)
+            {
+                var series = barSeriesList[s];
+                var value = labelIndex < series.Values.Count ? series.Values[labelIndex] : 0;
+                var zeroY = ValueToY(0);
+                var valueY = ValueToY(value);
+                var barX = groupLeft + s * (barWidth + 3);
+                var barY = Math.Min(zeroY, valueY);
+                var barHeight = Math.Max(0.5, Math.Abs(zeroY - valueY));
+
+                sb.Append($"""<rect x="{F(barX)}" y="{F(barY)}" width="{F(barWidth)}" height="{F(barHeight)}" fill="{series.Color}" />""");
+            }
+        }
+
+        // Line series, drawn over the bars
+        foreach (var series in Series.Where(s => s.Kind == ChartSeriesKind.Line))
+        {
+            var points = string.Join(" ", Enumerable.Range(0, Labels.Count)
+                .Select(i => $"{F(SlotCenter(i))},{F(ValueToY(i < series.Values.Count ? series.Values[i] : 0))}"));
+
+            if (series.Fill && Labels.Count > 0)
+            {
+                var zeroY = ValueToY(0);
+                var areaPoints = $"{F(SlotCenter(0))},{F(zeroY)} " + points + $" {F(SlotCenter(Labels.Count - 1))},{F(zeroY)}";
+                sb.Append($"""<polygon points="{areaPoints}" fill="{series.Color}" fill-opacity="0.18" />""");
+            }
+
+            sb.Append($"""<polyline points="{points}" fill="none" stroke="{series.Color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />""");
+
+            for (var i = 0; i < Labels.Count; i++)
+            {
+                var value = i < series.Values.Count ? series.Values[i] : 0;
+                sb.Append($"""<circle cx="{F(SlotCenter(i))}" cy="{F(ValueToY(value))}" r="4" fill="{series.Color}" />""");
+            }
+        }
+
+        // X-axis labels
+        for (var i = 0; i < Labels.Count; i++)
+        {
+            sb.Append($"""<text x="{F(SlotCenter(i))}" y="{F(PlotBottom + 18)}" text-anchor="middle" font-size="10" fill="var(--muted-text)">{Labels[i]}</text>""");
+        }
+
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+}

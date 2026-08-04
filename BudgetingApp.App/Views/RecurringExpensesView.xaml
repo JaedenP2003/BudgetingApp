@@ -1,0 +1,68 @@
+<UserControl x:Class="BudgetingApp.App.Views.RecurringExpensesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d">
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Recurring Expenses" Style="{StaticResource PageHeaderStyle}"/>
+
+        <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="16" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Add a recurring expense (rent, a subscription, or a one-time irregular expense with a note)" Style="{StaticResource SectionLabelStyle}"/>
+                <WrapPanel>
+                    <StackPanel Margin="0,0,12,0" Width="160">
+                        <TextBlock Text="Name" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBox x:Name="NameBox"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0" Width="150">
+                        <TextBlock Text="Category" Style="{StaticResource SectionLabelStyle}"/>
+                        <ComboBox x:Name="CategoryBox" DisplayMemberPath="Name" SelectedValuePath="Id"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0" Width="100">
+                        <TextBlock Text="Amount" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBox x:Name="AmountBox"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0" Width="110">
+                        <TextBlock Text="Cadence" Style="{StaticResource SectionLabelStyle}"/>
+                        <ComboBox x:Name="CadenceBox"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0" Width="110">
+                        <TextBlock Text="Start Date" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBox x:Name="StartDateBox"/>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,12,0" Width="200">
+                        <TextBlock Text="Note (optional)" Style="{StaticResource SectionLabelStyle}"/>
+                        <TextBox x:Name="NoteBox"/>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Bottom">
+                        <Button Content="Add" Style="{StaticResource AccentButtonStyle}" Click="AddButton_Click"/>
+                    </StackPanel>
+                </WrapPanel>
+                <TextBlock x:Name="ValidationText" Foreground="{StaticResource NegativeBrush}" Margin="0,8,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <DataGrid x:Name="ExpensesGrid" DockPanel.Dock="Top">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
+                <DataGridComboBoxColumn Header="Category" x:Name="CategoryColumn" Width="140"
+                                         SelectedValueBinding="{Binding CategoryId}" SelectedValuePath="Id" DisplayMemberPath="Name"
+                                         EditingElementStyle="{StaticResource DataGridComboBoxEditingStyle}"/>
+                <DataGridTextColumn Header="Expected Amount" Binding="{Binding ExpectedAmount, StringFormat={}{0:C}}" Width="120"/>
+                <DataGridComboBoxColumn Header="Cadence" x:Name="CadenceColumn" Width="100" SelectedValueBinding="{Binding Cadence}"
+                                         EditingElementStyle="{StaticResource DataGridComboBoxEditingStyle}"/>
+                <DataGridTextColumn Header="Start Date" Binding="{Binding StartDateText}" Width="100"/>
+                <DataGridTextColumn Header="End Date" Binding="{Binding EndDateText}" Width="100"/>
+                <DataGridTextColumn Header="Note" Binding="{Binding Note}" Width="*"/>
+                <DataGridTemplateColumn Header="" Width="70">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Delete" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" Click="DeleteButton_Click"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

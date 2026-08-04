@@ -1,0 +1,126 @@
+@page "/import"
+@inject WebBudgetStore Store
+@inject WebCsvImportService ImportService
+
+<PageTitle>Import</PageTitle>
+
+<h1 class="page-header">Import CSV</h1>
+
+<div style="display:flex; align-items:flex-end; gap:12px; margin-bottom:16px;">
+    <div class="field" style="width:180px;">
+        <div class="section-label">Account</div>
+        <select @bind="_selectedAccountId">
+            @foreach (var account in _accounts)
+            {
+                <option value="@account.Id">@account.Name</option>
+            }
+        </select>
+    </div>
+
+    <div class="file-input-row">
+        <label class="btn btn-accent" for="csvFileInput">Choose CSV File...</label>
+        <InputFile id="csvFileInput" class="file-input-hidden" OnChange="OnFileSelected" accept=".csv" disabled="@_importing" />
+        @if (_selectedFileName is not null)
+        {
+            <span class="file-input-name">@_selectedFileName</span>
+        }
+    </div>
+</div>
+
+<div class="checkbox-row">
+    <input type="checkbox" id="flipSign" @bind="_flipSign" />
+    <label for="flipSign">
+        This file shows a charge/expense as a <strong>positive</strong> number (common on dedicated
+        credit card statements). Leave unchecked if expenses are already negative, same as a normal
+        checking export.
+    </label>
+</div>
+
+@if (_importing)
+{
+    <p class="empty-hint">Importing...</p>
+}
+
+@if (_error is not null)
+{
+    <div class="alert alert-error">
+        <span class="alert-title">Could not import this file:</span> @_error
+    </div>
+}
+
+@if (_result is not null)
+{
+    var categorizedCount = _result.ImportedCount - _result.UncategorizedCount;
+    <div class="alert alert-success">
+        <span class="alert-title">
+            Imported @_result.ImportedCount transaction(s) — @categorizedCount auto-categorized, @_result.UncategorizedCount left uncategorized for manual review.
+        </span>
+    </div>
+}
+
+@if (_result is { HasErrors: true })
+{
+    <div class="section-label">@_result.RowErrors.Count row(s) could not be parsed and were skipped:</div>
+    <div style="overflow-x:auto;">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th style="width:60px;">Row</th>
+                <th style="width:260px;">Reason</th>
+                <th>Raw Line</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var rowError in _result.RowErrors)
+            {
+                <tr>
+                    <td>@rowError.RowNumber</td>
+                    <td class="text-negative">@rowError.Reason</td>
+                    <td class="text-muted">@rowError.RawLine</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Account> _accounts = [];
+    private long _selectedAccountId;
+    private bool _flipSign;
+    private bool _importing;
+    private string? _error;
+    private string? _selectedFileName;
+    private ImportResult? _result;
+
+    protected override void OnInitialized()
+    {
+        _accounts = Store.GetAccounts();
+        if (_accounts.Count > 0) _selectedAccountId = _accounts[0].Id;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        _result = null;
+        _importing = true;
+        _selectedFileName = e.File.Name;
+        StateHasChanged();
+
+        try
+        {
+            var file = e.File;
+            // Bank CSV exports for a single account are small; 10 MB is generous headroom.
+            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            _result = await ImportService.ImportAsync(stream, file.Name, _selectedAccountId, _flipSign);
+        }
+        catch (UnrecognizedCsvFormatException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+}

@@ -1,0 +1,196 @@
+@page "/recurring-expenses"
+@inject WebBudgetStore Store
+
+<PageTitle>Recurring Expenses</PageTitle>
+
+<h1 class="page-header">Recurring Expenses</h1>
+
+<div class="panel">
+    <div class="section-label">Add a recurring expense (rent, a subscription, or a one-time irregular expense with a note)</div>
+
+    <div class="form-row">
+        <div class="field" style="width:160px; margin-right:12px;">
+            <div class="section-label">Name</div>
+            <input type="text" @bind="_name" @bind:event="oninput" />
+        </div>
+        <div class="field" style="width:150px; margin-right:12px;">
+            <div class="section-label">Category</div>
+            <select @bind="_categoryId">
+                <option value="0">-</option>
+                @foreach (var category in _categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </select>
+        </div>
+        <div class="field" style="width:100px; margin-right:12px;">
+            <div class="section-label">Amount</div>
+            <input type="text" @bind="_amountText" @bind:event="oninput" />
+        </div>
+        <div class="field" style="width:110px; margin-right:12px;">
+            <div class="section-label">Cadence</div>
+            <select @bind="_cadence">
+                <option value="">-</option>
+                @foreach (var cadence in Enum.GetValues<Cadence>())
+                {
+                    <option value="@cadence">@cadence</option>
+                }
+            </select>
+        </div>
+        <div class="field" style="width:110px; margin-right:12px;">
+            <div class="section-label">Start Date</div>
+            <input type="text" placeholder="yyyy-MM-dd" @bind="_startDateText" @bind:event="oninput" />
+        </div>
+        <div class="field" style="width:200px; margin-right:12px;">
+            <div class="section-label">Note (optional)</div>
+            <input type="text" @bind="_note" @bind:event="oninput" />
+        </div>
+        <div style="margin-bottom:1px;">
+            <button class="btn btn-accent" @onclick="AddExpense">Add</button>
+        </div>
+    </div>
+
+    @if (_validationText is not null)
+    {
+        <div class="validation-text">@_validationText</div>
+    }
+</div>
+
+<div style="overflow-x:auto;">
+    <table class="data-table">
+        <thead>
+        <tr>
+            <th style="width:150px;">Name</th>
+            <th style="width:140px;">Category</th>
+            <th style="width:120px;">Expected Amount</th>
+            <th style="width:100px;">Cadence</th>
+            <th style="width:110px;">Start Date</th>
+            <th style="width:110px;">End Date</th>
+            <th>Note</th>
+            <th style="width:70px;"></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var expense in _expenses)
+        {
+            <tr>
+                <td><input type="text" value="@expense.Name" @onchange="e => UpdateField(expense, expense with { Name = (string)e.Value! })" /></td>
+                <td>
+                    <select value="@expense.CategoryId" @onchange="e => UpdateField(expense, expense with { CategoryId = long.Parse((string)e.Value!) })">
+                        @foreach (var category in _categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </select>
+                </td>
+                <td><input type="text" value="@expense.ExpectedAmount.ToString("0.00")" @onchange="e => OnAmountChanged(expense, (string?)e.Value)" /></td>
+                <td>
+                    <select value="@expense.Cadence" @onchange="e => UpdateField(expense, expense with { Cadence = Enum.Parse<Cadence>((string)e.Value!) })">
+                        @foreach (var cadence in Enum.GetValues<Cadence>())
+                        {
+                            <option value="@cadence">@cadence</option>
+                        }
+                    </select>
+                </td>
+                <td><input type="text" value="@expense.StartDate.ToString("yyyy-MM-dd")" @onchange="e => OnStartDateChanged(expense, (string?)e.Value)" /></td>
+                <td><input type="text" value="@(expense.EndDate?.ToString("yyyy-MM-dd") ?? "")" placeholder="—" @onchange="e => OnEndDateChanged(expense, (string?)e.Value)" /></td>
+                <td><input type="text" value="@expense.Note" @onchange="e => UpdateField(expense, expense with { Note = string.IsNullOrWhiteSpace((string?)e.Value) ? null : ((string)e.Value!).Trim() })" /></td>
+                <td><button class="btn btn-outline-accent small" @onclick="() => DeleteExpense(expense.Id)">Delete</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@if (_expenses.Count == 0)
+{
+    <p class="empty-hint" style="margin-top:12px;">No recurring expenses yet.</p>
+}
+
+@code {
+    private List<Category> _categories = [];
+    private List<RecurringExpense> _expenses = [];
+
+    private string _name = "";
+    private long _categoryId;
+    private string _amountText = "";
+    private string _cadence = "";
+    private string _startDateText = "";
+    private string _note = "";
+    private string? _validationText;
+
+    protected override void OnInitialized()
+    {
+        _categories = Store.GetCategories();
+        LoadExpenses();
+    }
+
+    private void LoadExpenses() => _expenses = Store.GetRecurringExpenses();
+
+    private async Task AddExpense()
+    {
+        _validationText = null;
+
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _validationText = "Name is required.";
+            return;
+        }
+        if (_categoryId == 0)
+        {
+            _validationText = "Choose a category.";
+            return;
+        }
+        if (!decimal.TryParse(_amountText, out var amount))
+        {
+            _validationText = "Amount must be a number.";
+            return;
+        }
+        if (!Enum.TryParse<Cadence>(_cadence, out var cadence))
+        {
+            _validationText = "Choose a cadence.";
+            return;
+        }
+        if (!DateOnly.TryParse(_startDateText, out var startDate))
+        {
+            _validationText = "Start date must be a valid date (e.g. 2026-08-01).";
+            return;
+        }
+
+        var note = string.IsNullOrWhiteSpace(_note) ? null : _note.Trim();
+        await Store.AddRecurringExpenseAsync(new RecurringExpense(0, _name.Trim(), _categoryId, amount, cadence, startDate, null, note));
+
+        _name = "";
+        _amountText = "";
+        _startDateText = "";
+        _note = "";
+        _categoryId = 0;
+        _cadence = "";
+
+        LoadExpenses();
+    }
+
+    private async Task UpdateField(RecurringExpense original, RecurringExpense updated)
+    {
+        await Store.UpdateRecurringExpenseAsync(updated);
+        LoadExpenses();
+    }
+
+    private Task OnAmountChanged(RecurringExpense expense, string? value) =>
+        decimal.TryParse(value, out var amount) ? UpdateField(expense, expense with { ExpectedAmount = amount }) : Task.CompletedTask;
+
+    private Task OnStartDateChanged(RecurringExpense expense, string? value) =>
+        DateOnly.TryParse(value, out var date) ? UpdateField(expense, expense with { StartDate = date }) : Task.CompletedTask;
+
+    private Task OnEndDateChanged(RecurringExpense expense, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return UpdateField(expense, expense with { EndDate = null });
+        return DateOnly.TryParse(value, out var date) ? UpdateField(expense, expense with { EndDate = date }) : Task.CompletedTask;
+    }
+
+    private async Task DeleteExpense(long id)
+    {
+        await Store.DeleteRecurringExpenseAsync(id);
+        LoadExpenses();
+    }
+}

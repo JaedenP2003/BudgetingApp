@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "2pvwNWBmYKo=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\princ\\IdeaProjects\\BudgetingApp\\BudgetingApp.Core\\BudgetingApp.Core.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\princ\\.nuget\\packages\\csvhelper\\33.1.0\\csvhelper.33.1.0.nupkg.sha512",
+    "C:\\Users\\princ\\.nuget\\packages\\microsoft.data.sqlite\\10.0.10\\microsoft.data.sqlite.10.0.10.nupkg.sha512",
+    "C:\\Users\\princ\\.nuget\\packages\\microsoft.data.sqlite.core\\10.0.10\\microsoft.data.sqlite.core.10.0.10.nupkg.sha512",
+    "C:\\Users\\princ\\.nuget\\packages\\sqlitepclraw.bundle_e_sqlite3\\2.1.12\\sqlitepclraw.bundle_e_sqlite3.2.1.12.nupkg.sha512",
+    "C:\\Users\\princ\\.nuget\\packages\\sqlitepclraw.core\\2.1.12\\sqlitepclraw.core.2.1.12.nupkg.sha512",
+    "C:\\Users\\princ\\.nuget\\packages\\sqlitepclraw.lib.e_sqlite3\\2.1.12\\sqlitepclraw.lib.e_sqlite3.2.1.12.nupkg.sha512",
+    "C:\\Users\\princ\\.nuget\\packages\\sqlitepclraw.provider.e_sqlite3\\2.1.12\\sqlitepclraw.provider.e_sqlite3.2.1.12.nupkg.sha512"
+  ],
+  "logs": []
+}

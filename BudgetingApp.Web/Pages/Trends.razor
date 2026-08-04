@@ -1,0 +1,93 @@
+@page "/trends"
+@using System.Globalization
+@inject WebMonthlySummaryService SummaryService
+@inject WebBudgetStore Store
+
+<PageTitle>Trends</PageTitle>
+
+<h1 class="page-header">Trends</h1>
+
+@if (_months.Count == 0)
+{
+    <div class="panel">
+        <span class="empty-hint">No data imported yet.</span>
+    </div>
+}
+else
+{
+    <div class="panel">
+        <div class="section-label">Income, expenses, and savings by month</div>
+        <TrendChart Labels="_monthLabels" Series="_overviewSeries" />
+    </div>
+
+    <div class="panel">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <span>Category:</span>
+            <select value="@_selectedCategoryId" @onchange="OnCategoryChanged" style="width:180px;">
+                @foreach (var category in _categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </select>
+        </div>
+        <TrendChart Labels="_monthLabels" Series="_categorySeries" />
+    </div>
+}
+
+@code {
+    private List<YearMonth> _months = [];
+    private List<MonthlySummary> _summaries = [];
+    private List<string> _monthLabels = [];
+    private List<Category> _categories = [];
+    private long _selectedCategoryId;
+
+    private List<TrendChart.ChartSeries> _overviewSeries = [];
+    private List<TrendChart.ChartSeries> _categorySeries = [];
+
+    protected override void OnInitialized()
+    {
+        _months = SummaryService.GetAvailableMonths().OrderBy(m => m).ToList();
+        if (_months.Count == 0) return;
+
+        _summaries = _months.Select(SummaryService.GetSummary).ToList();
+        _monthLabels = _months
+            .Select(m => $"{CultureInfo.InvariantCulture.DateTimeFormat.GetAbbreviatedMonthName(m.Month)} {m.Year}")
+            .ToList();
+
+        _categories = Store.GetCategories().Where(c => !c.IsTransfer).ToList();
+
+        _overviewSeries =
+        [
+            new TrendChart.ChartSeries("Income", _summaries.Select(s => (double)s.TotalIncome).ToList(), "var(--positive)", TrendChart.ChartSeriesKind.Bar),
+            new TrendChart.ChartSeries("Expenses", _summaries.Select(s => (double)s.TotalExpenses).ToList(), "var(--negative)", TrendChart.ChartSeriesKind.Bar),
+            new TrendChart.ChartSeries("Savings", _summaries.Select(s => (double)s.Savings).ToList(), "var(--accent)", TrendChart.ChartSeriesKind.Line)
+        ];
+
+        if (_categories.Count > 0)
+        {
+            _selectedCategoryId = _categories[0].Id;
+            RefreshCategorySeries();
+        }
+    }
+
+    private void OnCategoryChanged(ChangeEventArgs e)
+    {
+        _selectedCategoryId = long.Parse((string)e.Value!, CultureInfo.InvariantCulture);
+        RefreshCategorySeries();
+    }
+
+    private void RefreshCategorySeries()
+    {
+        var category = _categories.FirstOrDefault(c => c.Id == _selectedCategoryId);
+        if (category is null) return;
+
+        var values = _summaries
+            .Select(s => (double)(s.Rows.FirstOrDefault(r => r.CategoryId == category.Id)?.ActualAmount ?? 0m))
+            .ToList();
+
+        _categorySeries =
+        [
+            new TrendChart.ChartSeries(category.Name, values, "var(--accent)", TrendChart.ChartSeriesKind.Line, Fill: true)
+        ];
+    }
+}

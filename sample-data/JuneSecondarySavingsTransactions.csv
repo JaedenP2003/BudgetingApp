@@ -1,0 +1,7 @@
+"Transaction ID","Posting Date","Effective Date","Transaction Type","Amount","Check Number","Reference Number","Description","Transaction Category","Type","Balance","Memo","Extended Description"
+"20260630 7629968 3 3,033,694,029","6/30/2026","","Credit","0.03000","","4160296275","Dividend Deposit","Investment Income","Dividend Deposit","988.21000","","Dividend Deposit"
+"20260625 7629968 15,000 2,663,309,658","6/25/2026","","Credit","150.00000","","4148997826","Home banking Deposit Transfer from S0050","Transfers","Transfer","988.18000","","Home banking Deposit Transfer from S0050"
+"20260618 7629968 15,000 2,277,819,101","6/18/2026","","Credit","150.00000","","4136721327","Home banking Deposit Transfer from S0050","Transfers","Transfer","838.18000","","Home banking Deposit Transfer from S0050"
+"20260611 7629968 40,000 1,802,817,882","6/11/2026","","Credit","400.00000","","4121550283","Home banking Deposit Transfer from S0050","Transfers","Transfer","688.18000","","Home banking Deposit Transfer from S0050"
+"20260604 7629968 20,000 1,379,806,049","6/4/2026","","Credit","200.00000","","4107131839","Home banking Deposit Transfer from S0050","Transfers","Transfer","288.18000","","Home banking Deposit Transfer from S0050"
+"20260602 7629968 96,000 1,229,561,128","6/2/2026","","Debit","-960.00000","","4098808344","Ach Withdrawal Company: Axiom Property M Entry: Resident Jaeden Platt","Travel & Commute","ACH Withdrawal","88.18000","","ACH Withdrawal COMPANY: AXIOM PROPERTY M ENTRY: RESIDENT JAEDEN PLATT"

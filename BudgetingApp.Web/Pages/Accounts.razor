@@ -1,0 +1,90 @@
+@page "/accounts"
+@inject WebBudgetStore Store
+
+<PageTitle>Accounts</PageTitle>
+
+<h1 class="page-header">Accounts</h1>
+
+<div class="panel">
+    <div class="section-label" style="white-space:normal;">
+        Each imported CSV belongs to one account. If a file shows charges as positive numbers (some credit card statements do this), check the sign-flip box on the Import CSV page for that upload.
+    </div>
+
+    <div class="form-row">
+        <div class="field" style="width:180px; margin-right:12px;">
+            <div class="section-label">Name</div>
+            <input type="text" @bind="_name" @bind:event="oninput" />
+        </div>
+        <div class="field" style="width:140px; margin-right:12px;">
+            <div class="section-label">Type</div>
+            <select @bind="_type">
+                @foreach (var type in Enum.GetValues<AccountType>())
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
+        </div>
+        <div style="margin-bottom:1px;">
+            <button class="btn btn-accent" @onclick="AddAccount">Add Account</button>
+        </div>
+    </div>
+
+    @if (_validationText is not null)
+    {
+        <div class="validation-text">@_validationText</div>
+    }
+</div>
+
+<div style="overflow-x:auto;">
+    <table class="data-table">
+        <thead>
+        <tr>
+            <th style="width:200px;">Name</th>
+            <th style="width:140px;">Type</th>
+            <th style="width:70px;"></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var account in _accounts)
+        {
+            <tr>
+                <td>@account.Name</td>
+                <td>@account.Type</td>
+                <td><button class="btn btn-outline-accent small" @onclick="() => DeleteAccount(account.Id)">Delete</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<Account> _accounts = [];
+    private string _name = "";
+    private AccountType _type = AccountType.Checking;
+    private string? _validationText;
+
+    protected override void OnInitialized() => LoadAccounts();
+
+    private void LoadAccounts() => _accounts = Store.GetAccounts();
+
+    private async Task AddAccount()
+    {
+        _validationText = null;
+
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _validationText = "Name is required.";
+            return;
+        }
+
+        await Store.AddAccountAsync(_name.Trim(), _type);
+        _name = "";
+        LoadAccounts();
+    }
+
+    private async Task DeleteAccount(long id)
+    {
+        await Store.DeleteAccountAsync(id);
+        LoadAccounts();
+    }
+}

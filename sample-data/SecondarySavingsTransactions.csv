@@ -1,0 +1,5 @@
+"Transaction ID","Posting Date","Effective Date","Transaction Type","Amount","Check Number","Reference Number","Description","Transaction Category","Type","Balance","Memo","Extended Description"
+"20260731 7629968 4 5,371,711,309","7/31/2026","","Credit","0.04000","","4221224852","Dividend Deposit","Investment Income","Dividend Deposit","961.10000","","Dividend Deposit"
+"20260706 7629968 92,000 3,558,823,179","7/6/2026","","Credit","920.00000","","4172444947","Home banking Deposit Transfer from S0020","Transfers","Transfer","961.06000","","Home banking Deposit Transfer from S0020"
+"20260702 7629968 96,000 3,263,107,601","7/2/2026","","Debit","-960.00000","","4163753406","Ach Withdrawal Company: Axiom Property M Entry: Resident Jaeden Platt","Travel & Commute","ACH Withdrawal","41.06000","","ACH Withdrawal COMPANY: AXIOM PROPERTY M ENTRY: RESIDENT JAEDEN PLATT"
+"20260701 7629968 1,285 3,234,638,981","7/1/2026","","Credit","12.85000","","4163753404","Deposit - Visa Cash Back Card Quarterly Earnings","Deposits","Deposit","1001.06000","","Deposit - Visa Cash Back Card Quarterly Earnings"

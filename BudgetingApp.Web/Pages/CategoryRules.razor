@@ -1,0 +1,144 @@
+@page "/category-rules"
+@inject WebBudgetStore Store
+
+<PageTitle>Category Rules</PageTitle>
+
+<h1 class="page-header">Category Rules</h1>
+
+<div class="panel">
+    <div class="section-label" style="white-space:normal;">
+        A transaction is auto-categorized by the first matching rule, in priority order (lowest number first). No rule can point at more than one category.
+    </div>
+
+    <div class="form-row">
+        <div class="field" style="width:150px; margin-right:12px;">
+            <div class="section-label">Category</div>
+            <select @bind="_categoryId">
+                <option value="0">-</option>
+                @foreach (var category in _categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            </select>
+        </div>
+        <div class="field" style="width:110px; margin-right:12px;">
+            <div class="section-label">Match Type</div>
+            <select @bind="_matchType">
+                <option value="">-</option>
+                @foreach (var matchType in Enum.GetValues<MatchType>())
+                {
+                    <option value="@matchType">@matchType</option>
+                }
+            </select>
+        </div>
+        <div class="field" style="width:220px; margin-right:12px;">
+            <div class="section-label">Pattern</div>
+            <input type="text" @bind="_pattern" @bind:event="oninput" />
+        </div>
+        <div class="field" style="width:90px; margin-right:12px;">
+            <div class="section-label">Priority</div>
+            <input type="text" @bind="_priorityText" @bind:event="oninput" />
+        </div>
+        <div style="margin-bottom:1px;">
+            <button class="btn btn-accent" @onclick="AddRule">Add Rule</button>
+        </div>
+    </div>
+
+    @if (_validationText is not null)
+    {
+        <div class="validation-text">@_validationText</div>
+    }
+</div>
+
+<div style="overflow-x:auto;">
+    <table class="data-table">
+        <thead>
+        <tr>
+            <th style="width:70px;">Priority</th>
+            <th style="width:160px;">Category</th>
+            <th style="width:100px;">Match Type</th>
+            <th>Pattern</th>
+            <th style="width:70px;"></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var rule in _rules)
+        {
+            <tr>
+                <td>@rule.Priority</td>
+                <td>@CategoryName(rule.CategoryId)</td>
+                <td>@rule.MatchType</td>
+                <td>@rule.Pattern</td>
+                <td><button class="btn btn-outline-accent small" @onclick="() => DeleteRule(rule.Id)">Delete</button></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@if (_rules.Count == 0)
+{
+    <p class="empty-hint" style="margin-top:12px;">No category rules yet.</p>
+}
+
+@code {
+    private List<Category> _categories = [];
+    private List<CategoryRule> _rules = [];
+
+    private long _categoryId;
+    private string _matchType = "";
+    private string _pattern = "";
+    private string _priorityText = "100";
+    private string? _validationText;
+
+    protected override void OnInitialized()
+    {
+        _categories = Store.GetCategories();
+        LoadRules();
+    }
+
+    private void LoadRules() => _rules = Store.GetCategoryRules();
+
+    private string CategoryName(long categoryId) => _categories.FirstOrDefault(c => c.Id == categoryId)?.Name ?? "?";
+
+    private async Task AddRule()
+    {
+        _validationText = null;
+
+        if (_categoryId == 0)
+        {
+            _validationText = "Choose a category.";
+            return;
+        }
+        if (!Enum.TryParse<MatchType>(_matchType, out var matchType))
+        {
+            _validationText = "Choose a match type.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_pattern))
+        {
+            _validationText = "Pattern is required.";
+            return;
+        }
+        if (!int.TryParse(_priorityText, out var priority))
+        {
+            _validationText = "Priority must be a whole number.";
+            return;
+        }
+
+        await Store.AddCategoryRuleAsync(_categoryId, matchType, _pattern.Trim(), priority);
+
+        _pattern = "";
+        _categoryId = 0;
+        _matchType = "";
+        _priorityText = "100";
+
+        LoadRules();
+    }
+
+    private async Task DeleteRule(long ruleId)
+    {
+        await Store.DeleteCategoryRuleAsync(ruleId);
+        LoadRules();
+    }
+}

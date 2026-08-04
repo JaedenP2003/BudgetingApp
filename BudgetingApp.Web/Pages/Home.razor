@@ -1,0 +1,206 @@
+@page "/"
+@using System.Globalization
+@inject WebMonthlySummaryService SummaryService
+
+<PageTitle>Monthly Summary</PageTitle>
+
+<h1 class="page-header">Monthly Summary</h1>
+
+<div class="d-flex gap-2 mb-3" style="display:flex; gap:8px; margin-bottom:16px;">
+    <select class="field" value="@_selectedMonth" @onchange="OnMonthNumberChanged" style="width:130px;">
+        @foreach (var m in _monthNames)
+        {
+            <option value="@m.Value">@m.Name</option>
+        }
+    </select>
+    <select class="field" value="@_selectedYear" @onchange="OnYearChanged" style="width:90px;">
+        @foreach (var y in _yearOptions)
+        {
+            <option value="@y">@y</option>
+        }
+    </select>
+</div>
+
+@if (_summary is null)
+{
+    <p class="empty-hint">Loading...</p>
+}
+else if (!_summary.HasData)
+{
+    <div class="panel">
+        <span class="empty-hint">No data imported yet for this month.</span>
+    </div>
+}
+else
+{
+    <div class="stat-grid">
+        <div class="stat-card positive">
+            <div class="section-label">Total Income</div>
+            <div class="stat-value positive">@_summary.TotalIncome.ToString("C")</div>
+        </div>
+        <div class="stat-card negative">
+            <div class="section-label">Total Expenses</div>
+            <div class="stat-value negative">@_summary.TotalExpenses.ToString("C")</div>
+        </div>
+        <div class="stat-card muted">
+            <div class="section-label">Transfers between accounts</div>
+            <div class="stat-value muted">@_summary.TotalTransfers.ToString("C")</div>
+        </div>
+        <div class="stat-card @(_summary.Savings >= 0 ? "accent" : "negative")">
+            <div class="section-label">Savings</div>
+            <div class="stat-value @(_summary.Savings >= 0 ? "" : "negative")">@_summary.Savings.ToString("C")</div>
+        </div>
+    </div>
+
+    <div class="summary-detail">
+        <div class="category-grid">
+            @foreach (var row in _summary.Rows)
+            {
+                var display = BuildDisplay(row);
+                <div class="category-card @display.AccentClass">
+                    <div class="cat-name">@row.CategoryName</div>
+                    <div class="cat-actual">@row.ActualAmount.ToString("C")</div>
+                    <div class="cat-expected">Expected @row.ExpectedAmount.ToString("C")</div>
+                    <div class="cat-difference @display.DifferenceClass">@display.DifferenceText</div>
+
+                    @if (row.Transactions.Count > 0)
+                    {
+                        var isExpanded = _expandedCategories.Contains(display.Key);
+                        <button class="card-toggle" @onclick="() => ToggleExpanded(display.Key)">
+                            @(isExpanded ? "Hide" : row.Transactions.Count.ToString(CultureInfo.InvariantCulture) + " transaction" + (row.Transactions.Count == 1 ? "" : "s"))
+                        </button>
+
+                        @if (isExpanded)
+                        {
+                            <div class="cat-transactions">
+                                @foreach (var t in row.Transactions)
+                                {
+                                    var amount = row.IsTransfer ? t.Amount : row.IsIncome ? t.Amount : -t.Amount;
+                                    <div class="cat-transaction-row">
+                                        <div style="min-width:0;">
+                                            <div class="cat-transaction-desc" title="@t.Description">@t.Description</div>
+                                            <div class="cat-transaction-date">@t.PostingDate.ToString("MMM d")</div>
+                                        </div>
+                                        <div class="cat-transaction-amount @(row.IsIncome ? "text-positive" : row.IsTransfer ? "text-muted" : "text-negative")">@amount.ToString("C")</div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="chart-panel">
+            <div class="chart-panel-header">
+                <span class="section-label" style="margin:0;">Where it went</span>
+            </div>
+            @{
+                var spending = _summary.Rows
+                    .Where(r => !r.IsIncome && !r.IsTransfer && r.ActualAmount > 0)
+                    .OrderByDescending(r => r.ActualAmount)
+                    .ToList();
+                var max = spending.Count > 0 ? spending.Max(r => r.ActualAmount) : 0m;
+            }
+            @if (spending.Count == 0)
+            {
+                <span class="empty-hint">No spending this month.</span>
+            }
+            else
+            {
+                <div class="bar-list">
+                    @foreach (var row in spending)
+                    {
+                        var pct = max == 0 ? 0 : (double)(row.ActualAmount / max) * 100;
+                        <div>
+                            <div class="bar-row-label">
+                                <span>@row.CategoryName</span>
+                                <span class="amount">@row.ActualAmount.ToString("C0")</span>
+                            </div>
+                            <div class="bar-track">
+                                <div class="bar-fill" style="width:@(pct.ToString("0.##", CultureInfo.InvariantCulture))%; background:var(--negative);"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private record MonthOption(int Value, string Name);
+    private record RowDisplay(long Key, string AccentClass, string DifferenceClass, string DifferenceText);
+
+    private List<MonthOption> _monthNames = [];
+    private List<int> _yearOptions = [];
+    private int _selectedMonth;
+    private int _selectedYear;
+    private MonthlySummary? _summary;
+    private readonly HashSet<long> _expandedCategories = [];
+
+    protected override void OnInitialized()
+    {
+        _monthNames = Enumerable.Range(1, 12)
+            .Select(m => new MonthOption(m, CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(m)))
+            .ToList();
+
+        var availableMonths = SummaryService.GetAvailableMonths();
+        var currentYear = DateTime.Today.Year;
+        _yearOptions = Enumerable.Range(currentYear - 4, 6).ToList();
+
+        var defaultMonth = availableMonths.Count > 0 ? availableMonths.Max() : YearMonth.FromDate(DateOnly.FromDateTime(DateTime.Today));
+        _selectedMonth = defaultMonth.Month;
+        _selectedYear = defaultMonth.Year;
+        if (!_yearOptions.Contains(_selectedYear))
+        {
+            _yearOptions.Insert(0, _selectedYear);
+        }
+
+        RefreshSummary();
+    }
+
+    private void OnMonthNumberChanged(ChangeEventArgs e)
+    {
+        _selectedMonth = int.Parse((string)e.Value!, CultureInfo.InvariantCulture);
+        RefreshSummary();
+    }
+
+    private void OnYearChanged(ChangeEventArgs e)
+    {
+        _selectedYear = int.Parse((string)e.Value!, CultureInfo.InvariantCulture);
+        RefreshSummary();
+    }
+
+    private void RefreshSummary() => _summary = SummaryService.GetSummary(new YearMonth(_selectedYear, _selectedMonth));
+
+    private void ToggleExpanded(long key)
+    {
+        if (!_expandedCategories.Add(key))
+        {
+            _expandedCategories.Remove(key);
+        }
+    }
+
+    private static RowDisplay BuildDisplay(MonthlySummaryRow r)
+    {
+        var key = r.CategoryId ?? -1;
+        var accentClass = r.IsIncome ? "positive" : r.IsTransfer ? "muted" : r.CategoryId is null ? "amber" : "negative";
+
+        var difference = r.ActualAmount - r.ExpectedAmount;
+        var differenceText = (difference >= 0 ? "+" : "") + difference.ToString("C");
+
+        string differenceClass;
+        if (r.ExpectedAmount == 0)
+        {
+            differenceClass = "muted";
+        }
+        else
+        {
+            var isGoodDirection = r.IsIncome ? difference >= 0 : difference <= 0;
+            differenceClass = isGoodDirection ? "positive" : "negative";
+        }
+
+        return new RowDisplay(key, accentClass, differenceClass, differenceText);
+    }
+}

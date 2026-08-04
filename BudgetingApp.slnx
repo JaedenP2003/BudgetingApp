@@ -2,4 +2,5 @@
   <Project Path="BudgetingApp.App/BudgetingApp.App.csproj" />
   <Project Path="BudgetingApp.Core/BudgetingApp.Core.csproj" />
   <Project Path="BudgetingApp.Web/BudgetingApp.Web.csproj" />
+  <Project Path="BudgetingApp.ExportTool/BudgetingApp.ExportTool.csproj" />
 </Solution>

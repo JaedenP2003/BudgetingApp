@@ -1,0 +1,106 @@
+@page "/restore-backup"
+@using System.Text.Json
+@inject WebBudgetStore Store
+@inject IJSRuntime JsRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Restore Backup</PageTitle>
+
+<h1 class="page-header">Restore Backup</h1>
+
+<div class="panel">
+    <div class="section-label" style="white-space:normal;">
+        Load a backup produced by <code>BudgetingApp.ExportTool</code> (exported from the desktop app's database).
+        This <strong>replaces every category, account, rule, recurring expense, budget, and transaction currently
+        stored in this browser</strong> — it's not merged in alongside what's already here.
+    </div>
+
+    <div class="form-row">
+        <div>
+            <label class="btn btn-accent" for="backupFileInput">Choose Backup File...</label>
+            <InputFile id="backupFileInput" class="file-input-hidden" OnChange="OnFileSelected" accept=".json" disabled="@_busy" />
+        </div>
+        @if (_fileName is not null)
+        {
+            <span class="file-input-name" style="margin-left:12px;">@_fileName</span>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <div class="validation-text">@_error</div>
+    }
+</div>
+
+@if (_pending is not null)
+{
+    <div class="panel">
+        <div class="section-label">This file contains</div>
+        <table class="data-table" style="margin-bottom:16px;">
+            <tbody>
+            <tr><td>Categories</td><td class="text-right">@_pending.Categories.Count</td></tr>
+            <tr><td>Accounts</td><td class="text-right">@_pending.Accounts.Count</td></tr>
+            <tr><td>Category rules</td><td class="text-right">@_pending.CategoryRules.Count</td></tr>
+            <tr><td>Recurring expenses</td><td class="text-right">@_pending.RecurringExpenses.Count</td></tr>
+            <tr><td>Budgets</td><td class="text-right">@_pending.Budgets.Count</td></tr>
+            <tr><td>Transactions</td><td class="text-right">@_pending.Transactions.Count</td></tr>
+            </tbody>
+        </table>
+        <button class="btn btn-accent" disabled="@_busy" @onclick="ConfirmRestore">Replace browser data with this backup</button>
+    </div>
+}
+
+@if (_busy)
+{
+    <p class="empty-hint">Restoring...</p>
+}
+
+@code {
+    private string? _fileName;
+    private string? _error;
+    private BackupData? _pending;
+    private bool _busy;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        _pending = null;
+        _fileName = e.File.Name;
+
+        try
+        {
+            // A full export of years of transactions is still just a few MB of JSON;
+            // 20 MB is generous headroom without risking an unbounded read.
+            await using var stream = e.File.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
+            var backup = await JsonSerializer.DeserializeAsync<BackupData>(stream);
+            if (backup is null)
+            {
+                _error = "Could not read this file — it doesn't look like a backup export.";
+                return;
+            }
+            _pending = backup;
+        }
+        catch (JsonException)
+        {
+            _error = "Could not parse this file as JSON. Make sure it's an unmodified export from BudgetingApp.ExportTool.";
+        }
+    }
+
+    private async Task ConfirmRestore()
+    {
+        if (_pending is null) return;
+
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm",
+            "This will permanently replace all data currently stored in this browser. Continue?");
+        if (!confirmed) return;
+
+        _busy = true;
+        StateHasChanged();
+
+        await Store.RestoreAsync(_pending);
+
+        // IDs, categories, and everything else may have changed shape — reload rather than
+        // trying to patch every already-rendered page's in-memory state.
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

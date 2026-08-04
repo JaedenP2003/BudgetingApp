@@ -7,6 +7,17 @@ namespace BudgetingApp.Web.Storage;
 
 public record CategorizationResult(int CategorizedCount, int UncategorizedCount);
 
+/// <summary>Shape produced by BudgetingApp.ExportTool and consumed by the web app's Restore
+/// Backup page — one JSON file mapping 1:1 onto WebBudgetStore's six localStorage keys.</summary>
+public record BackupData(
+    List<Category> Categories,
+    List<Account> Accounts,
+    List<CategoryRule> CategoryRules,
+    List<RecurringExpense> RecurringExpenses,
+    List<Budget> Budgets,
+    List<Transaction> Transactions
+);
+
 /// <summary>
 /// The iPad/web frontend's independent data store — everything lives in memory and is
 /// mirrored to browser local storage as JSON, per phase 2 of the iPad proposal ("simplest
@@ -71,6 +82,34 @@ public class WebBudgetStore(ILocalStorageService localStorage)
         _nextTransactionId = NextId(_transactions.Select(t => t.Id));
 
         IsInitialized = true;
+    }
+
+    /// <summary>Wholesale-replaces every entity with the contents of a BackupData export
+    /// (see BudgetingApp.ExportTool) and persists it — the "carry my desktop data over"
+    /// path. Not a merge: existing browser data is discarded, since the export is meant to
+    /// be the new source of truth, not layered on top of the seeded defaults.</summary>
+    public async Task RestoreAsync(BackupData backup)
+    {
+        _categories = backup.Categories;
+        _accounts = backup.Accounts;
+        _categoryRules = backup.CategoryRules;
+        _recurringExpenses = backup.RecurringExpenses;
+        _budgets = backup.Budgets;
+        _transactions = backup.Transactions;
+
+        _nextCategoryId = NextId(_categories.Select(c => c.Id));
+        _nextAccountId = NextId(_accounts.Select(a => a.Id));
+        _nextCategoryRuleId = NextId(_categoryRules.Select(r => r.Id));
+        _nextRecurringExpenseId = NextId(_recurringExpenses.Select(e => e.Id));
+        _nextBudgetId = NextId(_budgets.Select(b => b.Id));
+        _nextTransactionId = NextId(_transactions.Select(t => t.Id));
+
+        await SaveCategoriesAsync();
+        await SaveAccountsAsync();
+        await SaveCategoryRulesAsync();
+        await SaveRecurringExpensesAsync();
+        await localStorage.SetItemAsync(BudgetsKey, _budgets);
+        await SaveTransactionsAsync();
     }
 
     private static long NextId(IEnumerable<long> ids)

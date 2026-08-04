@@ -52,16 +52,20 @@ Both frontends call into the same `BudgetApp.Core` library, so business logic is
 - `Pages/Accounts.razor` and `Pages/Trends.razor` added since. Trends uses a hand-rolled SVG chart component (`Shared/TrendChart.razor`) — grouped income/expense bars + a savings line for the overview, a per-category trend line with a category picker — instead of a JS charting library, keeping the same "Sheikah Slate" theme colors (`ChartTheme.cs`) with zero extra dependencies. Verified against seeded multi-month data (bar heights and axis scaling match the underlying numbers).
 - Not built (also absent from the desktop app, so not a web-specific gap): a budget-setting UI. `BudgetRepository`/`WebBudgetStore.UpsertBudgetAsync` exist but neither frontend has a screen for it.
 
-### Phase 4 — Deploy & Access from iPad — DONE (LAN self-host; see caveat)
-- Went with self-hosting on the home network rather than a public static host: `Properties/launchSettings.json`'s `http` profile now binds Kestrel to `0.0.0.0:5297` instead of `localhost:5297`, so any device on the same Wi-Fi can reach it. No GitHub/Azure account needed.
-- Verified reachable at `http://<PC's LAN IP>:5297` (confirmed via curl and a real page load from a non-localhost origin — title/routing rendered correctly).
-- **Important caveat**: Service workers (what makes "Add to Home Screen" install a true offline-caching PWA) only register in a "secure context" — HTTPS, or `localhost` specifically. A plain-HTTP LAN IP does **not** qualify, so the offline-install piece of the original Goals section won't work over `http://192.168.x.x:...`. Everything else works fine over LAN HTTP (import, categorize, edit, browse — `localStorage` has no secure-context requirement), it just needs the PC's server running and both devices on the same network each time, rather than being a true installed-and-cached PWA.
-- To get genuine offline PWA install, the original plan's public static host (GitHub Pages / Azure Static Web Apps) is still the way — both issue real trusted HTTPS certs for free. That needs the user to have (or create) an account there; not something doable unilaterally.
-- Possible firewall snag: no inbound rule for `dotnet.exe`/port 5297 currently exists. If the iPad can't connect despite the server running, Windows Firewall may be blocking it — ask before adding a rule, since that's a system-settings change.
+### Phase 4 — Deploy & Access from iPad — DONE (GitHub Pages, real HTTPS)
+- LAN self-hosting (bind `0.0.0.0`) was the first pass, but the user separately stood up `https://jaedenp2003.github.io/BudgetingApp/` — a proper public HTTPS static host, which resolves the LAN plan's service-worker/secure-context caveat entirely. That's now the primary way to access the app; the LAN option (`launchSettings.json`'s `http` profile bound to `0.0.0.0:5297`) still works for local dev/testing.
+- The repo (`JaedenP2003/BudgetingApp`) had been pushed but Pages 404'd — nothing had ever built the Blazor app or told Pages what to serve. Added `.github/workflows/deploy-pages.yml`: `dotnet publish` on every push to `main`, then three GitHub-Pages-specific fixups the Blazor SDK doesn't do on its own:
+  - Rewrite `<base href>` (index.html) and the service worker's own base-path constant for the `/BudgetingApp/` subpath — both default to `/` and there's no way to make the SDK subpath-aware at publish time.
+  - `.nojekyll` so GitHub doesn't run the output through Jekyll and silently drop the `_framework` folder (Jekyll ignores any directory starting with `_`).
+  - Serve `index.html` as `404.html` too, so a direct link or refresh on a client route (e.g. `/transactions`) doesn't hit a real 404 — GitHub Pages has no server-side rewrites, so this is the standard SPA-on-Pages trick.
+- Hit one non-obvious bug along the way: the base-href rewrite edits `index.html`'s bytes *after* `dotnet publish` already recorded its SHA-256 into `service-worker-assets.js` for the service worker's Subresource-Integrity check. The stale hash made that one fetch fail, which aborted the *entire* install step (one bad hash fails the whole `cache.addAll`) — so the service worker registered but silently never reached "activated," and nothing was actually cached offline. Fixed by recomputing and patching the hash in the same workflow step. Verified live: service worker reaches `activated`, 76 assets cached, second load has `serviceWorker.controller` set (page is actually being served from cache), and a direct deep link to `/transactions` resolves correctly.
+- Also cleaned up the repo while in there: 1,428 `bin`/`obj` files had been committed by mistake (`.gitignore` only excluded `/.claude`), and the unused Bootstrap lib (replaced by `theme.css` earlier) was still sitting in `wwwroot`.
+- Bonus: **desktop → web data migration**, since the user has ~2 years of real desktop data (2,644 transactions, 62 category rules) they didn't want to re-enter. `BudgetingApp.ExportTool` (new console project, references Core) reads the desktop SQLite DB through the existing repositories and writes one JSON file shaped to match `WebBudgetStore`'s six localStorage keys exactly. `WebBudgetStore.RestoreAsync` + a new `Pages/RestoreBackup.razor` page load that file and replace everything in browser storage. Verified end-to-end against the real database — all counts round-tripped exactly, totals came out right, all 2,644 transaction rows rendered fine.
 
 ### Phase 5 — Polish
 - Tighten up mobile-friendly layout/touch targets for iPad screen size.
 - Add any quality-of-life features that only matter on iPad (e.g., quicker CSV import flow via Files app integration).
+- Not yet tested on an actual iPad — everything so far has been verified via automated browser tooling on desktop viewports.
 
 ## Tech Stack Summary
 
@@ -70,10 +74,12 @@ Both frontends call into the same `BudgetApp.Core` library, so business logic is
 | Shared logic | .NET class library (`net8.0`) |
 | Desktop UI | WPF/WinForms (existing) |
 | iPad UI | Blazor WebAssembly + PWA |
-| Hosting | Static file host (GitHub Pages / Azure Static Web Apps) |
+| Hosting | GitHub Pages (`jaedenp2003.github.io/BudgetingApp/`), auto-deployed via GitHub Actions on push to `main` |
+| Data migration | `BudgetingApp.ExportTool` (desktop DB → JSON) + web app's Restore Backup page |
 
 ## Open Questions
 
-- ~~Should desktop and iPad share live data, or are two independent budgets acceptable for now?~~ Resolved for now: independent (see Phase 2).
+- ~~Should desktop and iPad share live data, or are two independent budgets acceptable for now?~~ Resolved for now: independent (see Phase 2) — but a one-time desktop→web migration path exists now (see Phase 4) for carrying existing data over.
 - ~~Any existing local database (SQLite, LiteDB, flat file) that needs a WASM-compatible equivalent?~~ Resolved: browser local storage via `Blazored.LocalStorage`, not SQLite-in-WASM.
-- Still open: category-rule/recurring-expense/budget management screens on web (exist on desktop, not yet ported); actual hosting choice for Phase 4; real-device testing on the iPad itself.
+- ~~Actual hosting choice for Phase 4?~~ Resolved: GitHub Pages, real HTTPS, auto-deploys on push.
+- Still open: budget-setting UI (absent from both frontends, not just web); real-device testing on an actual iPad (everything verified via automated browser tooling so far, not a physical device); Windows Firewall may still block LAN-mode access from other devices if that path is used instead of the Pages URL.

@@ -1,2 +1,0 @@
-/* Layout styling now lives in wwwroot/css/theme.css (.app-shell, .app-main) so it's
-   shared with NavMenu's sidebar classes without CSS-isolation scoping getting in the way. */

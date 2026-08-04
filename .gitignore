@@ -1,1 +1,10 @@
 /.claude
+
+## .NET
+bin/
+obj/
+publish/
+*.user
+
+## Blazor WASM publish helper files
+wwwroot/service-worker-assets.js
